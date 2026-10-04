@@ -22,6 +22,7 @@
       <span v-for="item in statusSummary" :key="item.status" class="legend-item">
         {{ item.status }}：{{ item.count }}
       </span>
+      <span class="legend-item legend-blocked">管制状态-已封锁：{{ blockedCount }}（关联道路禁止通行，航迹同步封锁）</span>
     </p>
 
     <form class="filter-bar" @submit.prevent="reload">
@@ -42,8 +43,16 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="row in rows" :key="String(row.id)">
-          <td v-for="column in columns" :key="column">{{ row[column] ?? '—' }}</td>
+        <tr v-for="row in rows" :key="String(row.id)" :class="{ 'row-blocked': row['管制状态'] === '已封锁' }">
+          <td v-for="column in columns" :key="column">
+            <template v-if="column === '管制状态'">
+              <span :class="['control-tag', row['管制状态'] === '已封锁' ? 'is-blocked' : 'is-open']">
+                {{ row[column] ?? '正常' }}
+              </span>
+              <span v-if="row['封锁来源']" class="block-source">（{{ row['封锁来源'] }}）</span>
+            </template>
+            <template v-else>{{ row[column] ?? '—' }}</template>
+          </td>
           <td>{{ row.status }}</td>
           <td class="row-actions">
             <button
@@ -51,6 +60,7 @@
               :key="action"
               class="link"
               type="button"
+              :disabled="row['管制状态'] === '已封锁'"
               @click="runAction(action, row)"
             >
               {{ action }}
@@ -82,10 +92,19 @@ import {
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('drone')
-const columns = ["任务编号", "飞行区域", "飞行路线", "飞手姓名", "起飞时间", "降落时间", "发现异常数", "任务状态"]
+const columns = ["任务编号", "飞行区域", "飞行路线", "飞手姓名", "起飞时间", "降落时间", "发现异常数", "任务状态", "管制状态"]
 const actions = ["开始飞行", "确认完成", "中止任务"]
 const statuses = ["待执行", "飞行中", "已完成", "因故中止"]
-const stats = [{"label": "今日飞行任务", "value": 0}, {"label": "已完成任务", "value": 0}, {"label": "发现异常数", "value": 0}]
+// 其他入口（道路台账、状态流转）写入的管制状态在这里统一读取，清单自动同步切换。
+const blockedCount = computed(() =>
+  rows.value.filter((row) => String(row['管制状态'] ?? '正常') === '已封锁').length,
+)
+const stats = computed(() => [
+  { label: "今日飞行任务", value: rows.value.length },
+  { label: "已完成任务", value: rows.value.filter((row) => String(row.status) === '已完成').length },
+  { label: "发现异常数", value: rows.value.reduce((sum, row) => sum + (Number(row['发现异常数']) || 0), 0) },
+  { label: "已封锁航迹", value: blockedCount.value },
+])
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
@@ -135,3 +154,28 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.row-blocked {
+  background: #fef3f2;
+}
+.legend-blocked {
+  background: #fee4e2;
+  color: #b42318;
+}
+.control-tag.is-blocked {
+  color: #b42318;
+  font-weight: 600;
+}
+.control-tag.is-open {
+  color: #175cd3;
+}
+.block-source {
+  color: #b42318;
+  font-size: 12px;
+}
+.link:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+</style>
