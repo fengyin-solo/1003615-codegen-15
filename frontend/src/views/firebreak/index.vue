@@ -84,7 +84,7 @@ import type { EntryRow } from '@/data/types'
 const meta = moduleMeta('firebreak')
 const columns = ["隔离带编号", "所属林区", "起止坐标", "带宽米数", "建成日期", "最近维护日期", "植被恢复程度", "维护状态"]
 const actions = ["安排维护", "确认恢复", "标记荒废"]
-const statuses = ["正常", "需割草", "需补植", "已荒废"]
+const statuses = ["正常", "需割草", "需补植", "已荒废", "巡护封锁"]
 const stats = [{"label": "隔离带总长", "value": 0}, {"label": "需维护条数", "value": 0}, {"label": "荒废条数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])

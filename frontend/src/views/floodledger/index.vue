@@ -1,13 +1,12 @@
 <template>
-  <section class="page" data-module="drone">
+  <section class="page" data-module="floodledger">
     <header class="page-head">
       <div>
-        <h2>无人机巡查管理</h2>
-        <p class="page-desc">维护无人机巡查任务，围绕任务编号、飞行区域、飞行路线、飞手姓名做登记、筛选与状态流转。</p>
+        <h2>汛期通行台账</h2>
+        <p class="page-desc">围绕道路编号、通行宽度、最近巡检日、通行状态登记汛期通行台账；重复登记按道路编号只保留一次，禁止通行时同步封锁无人机航线与防火隔离带巡护路线。</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" type="button" @click="openCreate">登记无人机巡查任务</button>
-        <button class="btn" type="button" @click="exportRows">导出无人机巡查清单</button>
+        <button class="btn" type="button" @click="exportRows">导出汛期通行台账</button>
       </div>
     </header>
 
@@ -23,6 +22,28 @@
         {{ item.status }}：{{ item.count }}
       </span>
     </p>
+
+    <form class="filter-bar" @submit.prevent="submitLedger">
+      <label class="filter-item">
+        <span>道路编号</span>
+        <input v-model="form.道路编号" placeholder="如 FORE-0001" />
+      </label>
+      <label class="filter-item">
+        <span>通行宽度</span>
+        <input v-model="form.通行宽度" placeholder="如 4.5米" />
+      </label>
+      <label class="filter-item">
+        <span>最近巡检日</span>
+        <input v-model="form.最近巡检日" type="date" />
+      </label>
+      <label class="filter-item">
+        <span>通行状态</span>
+        <select v-model="form.通行状态">
+          <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
+        </select>
+      </label>
+      <button class="btn primary" type="submit">登记台账</button>
+    </form>
 
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
@@ -58,14 +79,15 @@
           </td>
         </tr>
         <tr v-if="!rows.length">
-          <td :colspan="columns.length + 2" class="empty-state">暂无无人机巡查数据，可先登记无人机巡查任务</td>
+          <td :colspan="columns.length + 2" class="empty-state">暂无汛期通行台账数据，可先在上方登记</td>
         </tr>
       </tbody>
     </table>
 
     <footer class="page-foot">
-      <span>共 {{ total }} 条无人机巡查记录</span>
+      <span>共 {{ total }} 条汛期通行台账记录</span>
       <span v-if="errorMessage" class="error-text">{{ errorMessage }}</span>
+      <span v-else-if="noticeMessage">{{ noticeMessage }}</span>
     </footer>
   </section>
 </template>
@@ -77,21 +99,24 @@ import {
   downloadEntries,
   listEntries,
   moduleMeta,
+  registerFloodLedger,
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
 
-const meta = moduleMeta('drone')
-const columns = ["任务编号", "飞行区域", "飞行路线", "飞手姓名", "起飞时间", "降落时间", "发现异常数", "任务状态"]
-const actions = ["开始飞行", "确认完成", "中止任务"]
-const statuses = ["待执行", "飞行中", "已完成", "因故中止", "航线管制"]
-const stats = [{"label": "今日飞行任务", "value": 0}, {"label": "已完成任务", "value": 0}, {"label": "发现异常数", "value": 0}]
+const meta = moduleMeta('floodledger')
+const columns = ["台账编号", "道路编号", "通行宽度", "最近巡检日", "通行状态"]
+const actions = ["恢复正常通行", "标记需维护", "登记施工", "禁止通行"]
+const statuses = ["正常通行", "需维护", "正在施工", "禁止通行"]
+const stats = [{"label": "台账记录数", "value": 0}, {"label": "禁止通行段数", "value": 0}, {"label": "需维护段数", "value": 0}]
 
 const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
+const noticeMessage = ref('')
 const filters = ref<Record<string, string>>({})
 const filterFields = columns.slice(0, 3)
+const form = ref({ 道路编号: '', 通行宽度: '', 最近巡检日: '', 通行状态: statuses[0] })
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
     status,
@@ -108,17 +133,28 @@ function exportRows() {
   downloadEntries(meta.key)
 }
 
-function openCreate() {
-  errorMessage.value = '无人机巡查任务登记入口尚未接入审批流'
+function submitLedger() {
+  errorMessage.value = ''
+  noticeMessage.value = ''
+  const result = registerFloodLedger({ ...form.value })
+  if (!result.ok) {
+    errorMessage.value = result.message
+    return
+  }
+  noticeMessage.value = result.message
+  form.value = { 道路编号: '', 通行宽度: '', 最近巡检日: '', 通行状态: statuses[0] }
+  reload()
 }
 
 function runAction(action: string, row: EntryRow) {
   errorMessage.value = ''
+  noticeMessage.value = ''
   const result = applyAction(meta.key, Number(row.id), action)
   if (!result.ok) {
     errorMessage.value = result.message
     return
   }
+  noticeMessage.value = result.message
   reload()
 }
 
@@ -129,7 +165,7 @@ function reload() {
     rows.value = payload.items
     total.value = payload.total
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '无人机巡查列表读取失败'
+    errorMessage.value = error instanceof Error ? error.message : '汛期通行台账列表读取失败'
   }
 }
 

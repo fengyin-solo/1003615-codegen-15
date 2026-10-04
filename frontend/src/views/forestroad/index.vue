@@ -82,7 +82,7 @@ import {
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('forestroad')
-const columns = ["道路编号", "道路名称", "起点位置", "终点位置", "道路等级", "通行宽度", "最近巡检日", "通行状态"]
+const columns = ["道路编号", "道路名称", "起点位置", "终点位置", "道路等级", "通行宽度", "建成日期", "最近巡检日", "通行状态"]
 const actions = ["安排巡检", "登记施工", "封闭道路"]
 const statuses = ["正常通行", "需维护", "正在施工", "禁止通行"]
 const stats = [{"label": "道路总里程", "value": 0}, {"label": "需维护段数", "value": 0}, {"label": "施工段数", "value": 0}]
